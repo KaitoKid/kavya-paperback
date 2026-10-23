@@ -1,0 +1,45 @@
+name: Bundle and Publish Sources
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+concurrency:
+  group: publish-sources
+  cancel-in-progress: false
+jobs:
+  build:
+    name: Bundle and Publish Sources
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npx eslint src --ext .ts
+      - run: npm run bundle
+      - run: |
+          cp LICENSE bundles/LICENSE
+          touch bundles/.nojekyll
+      - name: Deploy
+        uses: s0/git-publish-subdir-action@v2.6.0
+        env:
+          REPO: self
+          BRANCH: gh-pages
+          FOLDER: bundles
+          SQUASH_HISTORY: 'true'
+          COMMIT_NAME: KaitoKid
+          COMMIT_EMAIL: 9055441+KaitoKid@users.noreply.github.com
+          MESSAGE: 'Publish Kavya from {sha}'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # GITHUB_TOKEN pushes do not trigger branch-based Pages builds.
+      - name: Build GitHub Pages
+        run: gh api --method POST "repos/$GITHUB_REPOSITORY/pages/builds"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
